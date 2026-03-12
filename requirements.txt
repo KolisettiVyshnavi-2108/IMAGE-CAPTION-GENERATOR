@@ -1,0 +1,11 @@
+torch
+torchvision
+torchaudio
+tensorflow>=2.15
+keras
+pillow
+matplotlib
+transformers
+numpy
+h5py
+
