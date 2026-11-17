@@ -1,43 +1,59 @@
-import matplotlib.pyplot as plt
-from PIL import Image
-import torch
-from transformers import BlipProcessor, BlipForConditionalGeneration
-import numpy as np
 import os
+from threading import Lock
 
-# Load BLIP model and processor (Salesforce/blip-image-captioning-base)
-# First run downloads ~500MB model automatically
-processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+from PIL import Image
+from transformers import BlipForConditionalGeneration, BlipProcessor
+
+
+MODEL_NAME = "Salesforce/blip-image-captioning-base"
+processor = None
+model = None
+_model_lock = Lock()
+
+
+def _load_model():
+    global processor, model
+
+    if processor is None or model is None:
+        with _model_lock:
+            if processor is None or model is None:
+                processor = BlipProcessor.from_pretrained(MODEL_NAME)
+                model = BlipForConditionalGeneration.from_pretrained(MODEL_NAME)
+
 
 def generate_caption(image_path):
-    """Generate caption using BLIP zero-shot model."""
-    # Load and preprocess image
-    raw_image = Image.open(image_path).convert('RGB')
-    inputs = processor(raw_image, return_tensors="pt")
-    
-    # Generate caption
-    out = model.generate(**inputs, max_length=50, num_beams=5)
-    caption = processor.decode(out[0], skip_special_tokens=True)
-    return caption
+    """Generate an image caption with the BLIP image-captioning model."""
+    _load_model()
+    with Image.open(image_path) as image:
+        inputs = processor(image.convert("RGB"), return_tensors="pt")
+    output = model.generate(**inputs, max_length=50, num_beams=5)
+    return processor.decode(output[0], skip_special_tokens=True)
 
-# IMAGE PATH (Flickr8k sample - user's example)
-image_path = r"C:\Users\VYSHNAVI\OneDrive\Desktop\IMAGE CAPTION GENERATOR\data\Images\3747543364_bf5b548527.jpg"
 
-# Generate caption
-if os.path.exists(image_path):
-    caption = generate_caption(image_path)
-    print("Generated Caption:", caption)
-    print("Expected (ground truth): A child in a pink dress is climbing up a set of stairs in an entry way .")
-    
-    # Show image + caption
-    image = Image.open(image_path)
-    plt.imshow(image)
-    plt.axis("off")
-    plt.title(f"✅ BLIP Caption: {caption}", fontsize=16, pad=20)
-    plt.show()
-else:
-    print(f"❌ Image not found: {image_path}")
+def _run_demo():
+    import matplotlib.pyplot as plt
 
-print("✅ BLIP zero-shot captioner - works on ANY image (edit path)!")
+    image_path = (
+        r"C:\Users\VYSHNAVI\OneDrive\Desktop\IMAGE CAPTION GENERATOR"
+        r"\data\Images\3747543364_bf5b548527.jpg"
+    )
+    if os.path.exists(image_path):
+        caption = generate_caption(image_path)
+        print("Generated Caption:", caption)
+        print(
+            "Expected (ground truth): A child in a pink dress is climbing up a "
+            "set of stairs in an entry way ."
+        )
+        with Image.open(image_path) as image:
+            plt.imshow(image)
+        plt.axis("off")
+        plt.title(f"BLIP Caption: {caption}", fontsize=16, pad=20)
+        plt.show()
+    else:
+        print(f"Image not found: {image_path}")
 
+    print("BLIP zero-shot captioner - works on ANY image (edit path)!")
+
+
+if __name__ == "__main__":
+    _run_demo()

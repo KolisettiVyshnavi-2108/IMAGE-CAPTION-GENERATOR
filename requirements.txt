@@ -8,4 +8,5 @@ matplotlib
 transformers
 numpy
 h5py
+Flask>=3.0
 
